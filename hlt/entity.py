@@ -160,6 +160,18 @@ class Planet(Entity):
 		:rtype: bool
 		"""
 		return len(self._docked_ship_ids) >= self.num_docking_spots
+		
+	def percentage_full(self):
+		"""
+		Determines how full a planet's docking space is based in percentage.
+
+		:return: percentage
+		:rtype: float
+		"""
+		percentage = len(self._docked_ship_ids) / self.num_docking_spots
+		if percentage > 100:
+			percentage = 100
+		return percentage
 
 	def _link(self, players, planets):
 		"""

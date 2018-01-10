@@ -18,7 +18,7 @@ import logging
 
 # GAME START
 # Here we define the bot's name as Settler and initialize the game, including communication with the Halite engine.
-game = hlt.Game("MyBot-Master")
+game = hlt.Game("MyBot")
 # Then we print our start message to the logs
 logging.info("Starting my Settler bot!")
 
@@ -39,7 +39,11 @@ while True:
 		closest_enemies = helper.closest_enemies(game_map, ship);
 		closest_enemy_ships = closest_enemies[0]
 		closest_enemy_planets = closest_enemies[1]
-		planets = closest_enemies[2]
+		better_planet = helper.best_planet(closest_enemies[3])
+		planets = []
+		if better_planet != None:
+			planets.extend([better_planet]) #better in terms of vacancy
+		planets.extend(closest_enemies[2])
 		planets.extend(closest_enemy_planets)
 		# If the ship is docked
 		if ship.docking_status != ship.DockingStatus.UNDOCKED:
@@ -49,7 +53,7 @@ while True:
 		# For each planet in the game (only non-destroyed planets are included)
 		for planet in planets:
 			# If the planet is owned
-			if planet.is_owned() or planet.is_full():
+			if planet.is_full():
 				# Skip this planet
 				planets_status[planet.get_planet_id()] = [planet, True]
 				continue
@@ -57,10 +61,19 @@ while True:
 				planets_status[planet.get_planet_id()] = [planet, False]
 			
 			# If we can dock, let's (try to) dock. If two ships try to dock at once, neither will be able to.
-			if ship.can_dock(planet) and len(planet.all_docked_ships()) < 5:
+			if ship.can_dock(planet):
 				# We add the command by appending it to the command_queue
 				command_queue.append(ship.dock(planet))
 				queued=True
+			elif queued==False and planet.get_planet_owner() != game_map.get_me() and len(planet.all_docked_ships()) > 0:
+				navigate_command = ship.navigate(
+					ship.closest_point_to(planet.all_docked_ships()[0]),
+					game_map,
+					speed=int(hlt.constants.MAX_SPEED),
+					ignore_ships=False)
+				if navigate_command:
+					command_queue.append(navigate_command)
+					queued=True
 			else:
 				# If we can't dock, we move towards the closest empty point near this planet (by using closest_point_to)
 				# with constant speed. Don't worry about pathfinding for now, as the command will do it for you.
@@ -82,7 +95,7 @@ while True:
 					command_queue.append(navigate_command)
 					queued=True
 			break
-		
+			
 		if len(planets) == 0 and queued==False:
 			navigate_command = ship.navigate(
 				ship.closest_point_to(closest_enemy_ships[0]),
@@ -91,8 +104,6 @@ while True:
 				ignore_ships=False)
 			if navigate_command:
 				command_queue.append(navigate_command)
-		
-		
 
 	# Send our set of commands to the Halite engine for this turn
 	game.send_command_queue(command_queue)
