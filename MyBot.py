@@ -22,29 +22,30 @@ game = hlt.Game("MyBot")
 # Then we print our start message to the logs
 logging.info("Starting my Settler bot!")
 
-my_ships = dict()
+
 planets_status = dict()
+ship_planet_assignment = dict()
 
 while True:
 	# TURN START
 	# Update the map for the new turn and get the latest version
 	game_map = game.update_map()
-
+	queued = False
 	# Here we define the set of commands to be sent to the Halite engine at the end of the turn
 	command_queue = []
 	# For every ship that I control
 	for ship in game_map.get_me().all_ships():
-		my_ships[ship.get_ship_id()] = ship
-		queued = False
 		closest_enemies = helper.closest_enemies(game_map, ship);
 		closest_enemy_ships = closest_enemies[0]
-		closest_enemy_planets = closest_enemies[1]
-		better_planet = helper.best_planet(closest_enemies[3])
+		closest_enemy_planets = helper.best_planet_selection(closest_enemies[1], ship_planet_assignment, ship.get_id(), 20)
+		better_planet = helper.best_planet_selection(closest_enemies[3], ship_planet_assignment, ship.get_id(), 80)
 		planets = []
 		if better_planet != None:
 			planets.extend([better_planet]) #better in terms of vacancy
 		planets.extend(closest_enemies[2])
-		planets.extend(closest_enemy_planets)
+		if closest_enemy_planets != None:
+			planets.extend(closest_enemy_planets)
+		planets.extend(closest_enemies[1])
 		# If the ship is docked
 		if ship.docking_status != ship.DockingStatus.UNDOCKED:
 			# Skip this ship
@@ -55,15 +56,16 @@ while True:
 			# If the planet is owned
 			if planet.is_full():
 				# Skip this planet
-				planets_status[planet.get_planet_id()] = [planet, True]
+				planets_status[planet.get_id()] = [planet, True]
 				continue
 			else:
-				planets_status[planet.get_planet_id()] = [planet, False]
+				planets_status[planet.get_id()] = [planet, False]
 			
 			# If we can dock, let's (try to) dock. If two ships try to dock at once, neither will be able to.
 			if ship.can_dock(planet):
 				# We add the command by appending it to the command_queue
 				command_queue.append(ship.dock(planet))
+				ship_planet_assignment[ship.get_id()] = [planet.get_id(), ship.dock(planet)]
 				queued=True
 			elif queued==False and planet.get_planet_owner() != game_map.get_me() and len(planet.all_docked_ships()) > 0:
 				navigate_command = ship.navigate(
@@ -73,6 +75,7 @@ while True:
 					ignore_ships=False)
 				if navigate_command:
 					command_queue.append(navigate_command)
+					ship_planet_assignment[ship.get_id()] = [planet.get_id(), navigate_command]
 					queued=True
 			else:
 				# If we can't dock, we move towards the closest empty point near this planet (by using closest_point_to)
@@ -93,6 +96,7 @@ while True:
 				# don't fret though, we can run the command again the next turn)
 				if navigate_command:
 					command_queue.append(navigate_command)
+					ship_planet_assignment[ship.get_id()] = [planet.get_id(), navigate_command]
 					queued=True
 			break
 			

@@ -116,7 +116,7 @@ class Planet(Entity):
 		"""
 		return self.owner
 	
-	def get_planet_id(self):
+	def get_id(self):
 		"""
 		Obtain the id of this planet.
 		
@@ -169,6 +169,18 @@ class Planet(Entity):
 		:rtype: float
 		"""
 		percentage = len(self._docked_ship_ids) / self.num_docking_spots
+		if percentage > 100:
+			percentage = 100
+		return percentage
+	
+	def percentage_full_adjustment(self, adjustment):
+		"""
+		Determines how full a planet's docking space is based in percentage and an adjustment to docked ships for future projection
+
+		:return: percentage
+		:rtype: float
+		"""
+		percentage = (len(self._docked_ship_ids) + adjustment) / self.num_docking_spots
 		if percentage > 100:
 			percentage = 100
 		return percentage
@@ -266,7 +278,7 @@ class Ship(Entity):
 		self._docking_progress = progress
 		self._weapon_cooldown = cooldown
 		
-	def get_ship_id(self):
+	def get_id(self):
 		"""
 		Obtain the id of this ship.
 		
